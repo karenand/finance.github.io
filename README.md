@@ -1,1 +1,1 @@
-# Finance
+# FIRE Finance
