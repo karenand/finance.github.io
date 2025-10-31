@@ -1,0 +1,581 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Early Retirement Income Strategy - MVP</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: linear-gradient(135deg, #e0f2fe 0%, #ddd6fe 100%);
+            padding: 20px;
+            min-height: 100vh;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            background: white;
+            padding: 40px;
+            border-radius: 16px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.1);
+        }
+
+        .header {
+            margin-bottom: 40px;
+        }
+
+        .header h1 {
+            font-size: 2rem;
+            color: #1e293b;
+            margin-bottom: 8px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .header p {
+            color: #64748b;
+            font-size: 0.95rem;
+        }
+
+        .icon {
+            color: #4f46e5;
+        }
+
+        .inputs-container {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 24px;
+            margin-bottom: 40px;
+        }
+
+        .input-box {
+            background: white;
+            padding: 20px;
+            border-radius: 12px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+        }
+
+        .input-box label {
+            display: block;
+            font-weight: 600;
+            color: #374151;
+            margin-bottom: 8px;
+            white-space: nowrap;
+            font-size: 0.875rem;
+        }
+
+        .input-wrapper {
+            position: relative;
+        }
+
+        .currency-symbol {
+            position: absolute;
+            left: 12px;
+            top: 50%;
+            transform: translateY(-50%);
+            color: #6b7280;
+            pointer-events: none;
+        }
+
+        .input-box input {
+            width: 100%;
+            padding: 10px 12px;
+            border: 1px solid #d1d5db;
+            border-radius: 8px;
+            font-size: 0.95rem;
+            transition: all 0.2s;
+        }
+
+        .input-box input[type="text"] {
+            padding-left: 28px;
+        }
+
+        .input-box input:focus {
+            outline: none;
+            border-color: #4f46e5;
+            box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.1);
+        }
+
+        .helper-text {
+            margin-top: 6px;
+            font-size: 0.75rem;
+            color: #6b7280;
+        }
+
+        .helper-text.emphasis {
+            color: #374151;
+            font-weight: 500;
+        }
+
+        .table-container {
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1);
+            overflow: hidden;
+            margin-bottom: 30px;
+        }
+
+        .table-wrapper {
+            overflow-x: auto;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        thead {
+            background: #4f46e5;
+            color: white;
+        }
+
+        th {
+            padding: 16px;
+            text-align: left;
+            font-weight: 600;
+            font-size: 0.875rem;
+        }
+
+        th.text-right {
+            text-align: right;
+        }
+
+        th.highlight-1 {
+            background: #4338ca;
+        }
+
+        th.highlight-2 {
+            background: #3730a3;
+        }
+
+        th.highlight-3 {
+            background: #7c3aed;
+        }
+
+        th.highlight-4 {
+            background: #6d28d9;
+        }
+
+        tbody tr:nth-child(even) {
+            background: #f9fafb;
+        }
+
+        tbody tr:nth-child(odd) {
+            background: white;
+        }
+
+        td {
+            padding: 16px;
+            color: #374151;
+            font-size: 0.875rem;
+        }
+
+        td.text-right {
+            text-align: right;
+        }
+
+        td.year {
+            font-weight: 600;
+        }
+
+        td.monthly {
+            font-weight: 600;
+            color: #4f46e5;
+            background: #eef2ff;
+        }
+
+        td.total {
+            font-weight: 700;
+            color: #4338ca;
+            background: #eef2ff;
+        }
+
+        td.magi {
+            font-weight: 700;
+            color: #3730a3;
+            background: #e0e7ff;
+        }
+
+        td.taxable {
+            font-weight: 700;
+            color: #7c3aed;
+            background: #f5f3ff;
+        }
+
+        td.tax-liability {
+            font-weight: 700;
+            color: #6d28d9;
+            background: #ede9fe;
+        }
+
+        td input {
+            width: 100%;
+            padding: 6px 8px;
+            border: 1px solid #d1d5db;
+            border-radius: 6px;
+            font-size: 0.875rem;
+        }
+
+        td input:focus {
+            outline: none;
+            border-color: #4f46e5;
+            box-shadow: 0 0 0 2px rgba(79, 70, 229, 0.1);
+        }
+
+        .notes-section {
+            background: #dbeafe;
+            border: 1px solid #93c5fd;
+            border-radius: 12px;
+            padding: 24px;
+        }
+
+        .notes-section h3 {
+            color: #1e3a8a;
+            font-size: 1rem;
+            margin-bottom: 12px;
+        }
+
+        .notes-section ul {
+            list-style: none;
+        }
+
+        .notes-section li {
+            color: #1e40af;
+            font-size: 0.875rem;
+            margin-bottom: 8px;
+            line-height: 1.5;
+        }
+
+        .notes-section li.strategy-header {
+            font-weight: 600;
+            margin-top: 12px;
+        }
+
+        @media (max-width: 768px) {
+            .container {
+                padding: 20px;
+            }
+
+            .header h1 {
+                font-size: 1.5rem;
+            }
+
+            th, td {
+                padding: 12px 8px;
+                font-size: 0.8rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>
+                <span class="icon">📈</span>
+                Early Retirement Income Strategy - MVP
+            </h1>
+            <p>5-Year Projection with SEPP Calculation (Age 45, Single Life Amortization)</p>
+        </div>
+
+        <div class="inputs-container">
+            <div class="input-box">
+                <label>Brokerage Account (Year 1)</label>
+                <div class="input-wrapper">
+                    <span class="currency-symbol">$</span>
+                    <input type="text" id="brokerageIncome" value="65,000">
+                </div>
+            </div>
+
+            <div class="input-box">
+                <label>Roth Basis Distribution (Year 1)</label>
+                <div class="input-wrapper">
+                    <span class="currency-symbol">$</span>
+                    <input type="text" id="rothBasis" value="20,000">
+                </div>
+            </div>
+
+            <div class="input-box">
+                <label>IRA Balance for SEPP</label>
+                <div class="input-wrapper">
+                    <span class="currency-symbol">$</span>
+                    <input type="text" id="seppBalance" value="550,000">
+                </div>
+                <div class="helper-text">Annual SEPP: <span id="seppPayment">$0</span></div>
+                <div class="helper-text emphasis">Using 4.86% rate assumption</div>
+            </div>
+
+            <div class="input-box">
+                <label>HELOC Amount</label>
+                <div class="input-wrapper">
+                    <span class="currency-symbol">$</span>
+                    <input type="text" id="helocAmount" value="70,000">
+                </div>
+            </div>
+
+            <div class="input-box">
+                <label>HELOC Interest Rate (%)</label>
+                <input type="number" id="helocRate" value="7.5" step="0.1">
+                <div class="helper-text">Annual Interest: <span id="helocInterest">$0</span></div>
+            </div>
+
+            <div class="input-box">
+                <label>Annual Growth Rate (%)</label>
+                <input type="number" id="annualGrowth" value="2" step="0.1">
+                <div class="helper-text">Applied to Brokerage only</div>
+            </div>
+        </div>
+
+        <div class="table-container">
+            <div class="table-wrapper">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Year</th>
+                            <th class="text-right">Brokerage</th>
+                            <th class="text-right">Roth Basis</th>
+                            <th class="text-right">SEPP</th>
+                            <th class="text-right">HELOC</th>
+                            <th class="text-right highlight-1">Monthly</th>
+                            <th class="text-right highlight-1">Total Income</th>
+                            <th class="text-right highlight-2">MAGI</th>
+                            <th class="text-right highlight-3">Taxable Income</th>
+                            <th class="text-right highlight-4">Tax Liability</th>
+                            <th>Notes</th>
+                        </tr>
+                    </thead>
+                    <tbody id="projectionTable">
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <div class="notes-section">
+            <h3>Notes:</h3>
+            <ul>
+                <li>• SEPP calculated using Single Life Amortization method for age 45 (38.8 year life expectancy)</li>
+                <li>• MAGI excludes HELOC proceeds (borrowed funds, not taxable income)</li>
+                <li>• Roth basis withdrawals are tax-free and included in total income but may affect MAGI for ACA subsidies</li>
+                <li>• SEPP payments remain constant throughout the 5-year period</li>
+                <li>• Annual growth rate applies to Brokerage distributions only (Roth basis remains constant)</li>
+                <li>• Monthly income is calculated as Total Annual Income ÷ 12</li>
+                <li>• Tax calculations assume MFJ status, 2025 brackets, $29,200 standard deduction, and $8,000 child tax credit (4 dependents)</li>
+                <li>• Brokerage income treated as LTCG (0% rate up to $94,050 for MFJ), SEPP as ordinary income</li>
+                <li class="strategy-header">Strategy Tips:</li>
+                <li>• Want to maximize ACA subsidies? Favor HELOC draws.</li>
+                <li>• Want to harvest LTCGs or qualify for tax-free capital gains? Favor brokerage.</li>
+                <li>• Need to optimize for lender income? Blend both to hit target MAGI.</li>
+            </ul>
+        </div>
+    </div>
+
+    <script>
+        // State management
+        const state = {
+            notes: {}
+        };
+
+        // Utility functions
+        function formatCurrency(value) {
+            return new Intl.NumberFormat('en-US', {
+                style: 'currency',
+                currency: 'USD',
+                minimumFractionDigits: 0,
+                maximumFractionDigits: 0,
+            }).format(value);
+        }
+
+        function formatCurrencyInput(value) {
+            return new Intl.NumberFormat('en-US', {
+                style: 'decimal',
+                minimumFractionDigits: 0,
+                maximumFractionDigits: 0,
+            }).format(value);
+        }
+
+        function parseCurrencyInput(value) {
+            return Number(value.replace(/[^0-9.-]/g, ''));
+        }
+
+        // SEPP calculation
+        function calculateSEPP(balance) {
+            const interestRate = 0.0486;
+            const lifeExpectancy = 38.8;
+            const r = interestRate;
+            const n = lifeExpectancy;
+            const payment = balance * (r * Math.pow(1 + r, n)) / (Math.pow(1 + r, n) - 1);
+            return payment;
+        }
+
+        // Tax calculation
+        function calculateTax(brokerage, sepp) {
+            const standardDeduction = 29200;
+            const childTaxCredit = 8000;
+            
+            const ordinaryIncome = sepp;
+            const ltcg = brokerage;
+            
+            const taxableOrdinary = Math.max(0, ordinaryIncome - standardDeduction);
+            
+            // Ordinary income tax
+            let ordinaryTax = 0;
+            if (taxableOrdinary > 0) {
+                if (taxableOrdinary <= 23200) {
+                    ordinaryTax = taxableOrdinary * 0.10;
+                } else if (taxableOrdinary <= 94300) {
+                    ordinaryTax = 2320 + (taxableOrdinary - 23200) * 0.12;
+                } else if (taxableOrdinary <= 201050) {
+                    ordinaryTax = 10852 + (taxableOrdinary - 94300) * 0.22;
+                } else if (taxableOrdinary <= 383900) {
+                    ordinaryTax = 34337 + (taxableOrdinary - 201050) * 0.24;
+                } else if (taxableOrdinary <= 487450) {
+                    ordinaryTax = 78221 + (taxableOrdinary - 383900) * 0.32;
+                } else if (taxableOrdinary <= 731200) {
+                    ordinaryTax = 111357 + (taxableOrdinary - 487450) * 0.35;
+                } else {
+                    ordinaryTax = 196669.50 + (taxableOrdinary - 731200) * 0.37;
+                }
+            }
+            
+            // LTCG tax
+            const ltcgThreshold0 = 94050;
+            const ltcgThreshold15 = 583750;
+            
+            let ltcgTax = 0;
+            const ordinarySpace = Math.max(0, ltcgThreshold0 - taxableOrdinary);
+            const ltcgIn0Bracket = Math.min(ltcg, ordinarySpace);
+            const ltcgRemaining = ltcg - ltcgIn0Bracket;
+            
+            if (ltcgRemaining > 0) {
+                const ltcgIn15Bracket = Math.min(ltcgRemaining, ltcgThreshold15 - ltcgThreshold0);
+                const ltcgIn20Bracket = Math.max(0, ltcgRemaining - ltcgIn15Bracket);
+                
+                ltcgTax = (ltcgIn15Bracket * 0.15) + (ltcgIn20Bracket * 0.20);
+            }
+            
+            const totalTax = Math.max(0, ordinaryTax + ltcgTax - childTaxCredit);
+            
+            return {
+                taxableIncome: taxableOrdinary + ltcg,
+                totalTax: totalTax
+            };
+        }
+
+        // Generate projection data
+        function generateProjection() {
+            const brokerageIncome = parseCurrencyInput(document.getElementById('brokerageIncome').value);
+            const rothBasis = parseCurrencyInput(document.getElementById('rothBasis').value);
+            const seppBalance = parseCurrencyInput(document.getElementById('seppBalance').value);
+            const helocAmount = parseCurrencyInput(document.getElementById('helocAmount').value);
+            const helocRate = parseFloat(document.getElementById('helocRate').value);
+            const annualGrowth = parseFloat(document.getElementById('annualGrowth').value);
+
+            const seppAnnualPayment = calculateSEPP(seppBalance);
+            const helocInterest = (helocAmount * helocRate) / 100;
+
+            // Update helper texts
+            document.getElementById('seppPayment').textContent = formatCurrency(seppAnnualPayment);
+            document.getElementById('helocInterest').textContent = formatCurrency(helocInterest);
+
+            const years = [];
+            for (let year = 1; year <= 5; year++) {
+                const growthMultiplier = Math.pow(1 + annualGrowth / 100, year - 1);
+                
+                const brokerage = brokerageIncome * growthMultiplier;
+                const roth = rothBasis;
+                const sepp = seppAnnualPayment;
+                const heloc = helocAmount;
+                
+                const totalIncome = brokerage + roth + sepp + heloc;
+                const monthlyIncome = totalIncome / 12;
+                const magi = brokerage + roth + sepp;
+                
+                const taxCalc = calculateTax(brokerage, sepp);
+                
+                years.push({
+                    year,
+                    brokerage: Math.round(brokerage),
+                    roth: Math.round(roth),
+                    sepp: Math.round(sepp),
+                    heloc: Math.round(heloc),
+                    monthlyIncome: Math.round(monthlyIncome),
+                    totalIncome: Math.round(totalIncome),
+                    magi: Math.round(magi),
+                    taxableIncome: Math.round(taxCalc.taxableIncome),
+                    taxLiability: Math.round(taxCalc.totalTax)
+                });
+            }
+
+            return years;
+        }
+
+        // Render table
+        function renderTable() {
+            const projectionData = generateProjection();
+            const tbody = document.getElementById('projectionTable');
+            tbody.innerHTML = '';
+
+            projectionData.forEach(row => {
+                const tr = document.createElement('tr');
+                tr.innerHTML = `
+                    <td class="year">Year ${row.year}</td>
+                    <td class="text-right">${formatCurrency(row.brokerage)}</td>
+                    <td class="text-right">${formatCurrency(row.roth)}</td>
+                    <td class="text-right">${formatCurrency(row.sepp)}</td>
+                    <td class="text-right">${formatCurrency(row.heloc)}</td>
+                    <td class="text-right monthly">${formatCurrency(row.monthlyIncome)}</td>
+                    <td class="text-right total">${formatCurrency(row.totalIncome)}</td>
+                    <td class="text-right magi">${formatCurrency(row.magi)}</td>
+                    <td class="text-right taxable">${formatCurrency(row.taxableIncome)}</td>
+                    <td class="text-right tax-liability">${formatCurrency(row.taxLiability)}</td>
+                    <td><input type="text" placeholder="Add note..." value="${state.notes[row.year] || ''}" data-year="${row.year}"></td>
+                `;
+                tbody.appendChild(tr);
+            });
+
+            // Add event listeners to note inputs
+            const noteInputs = tbody.querySelectorAll('input[data-year]');
+            noteInputs.forEach(input => {
+                input.addEventListener('input', (e) => {
+                    state.notes[e.target.dataset.year] = e.target.value;
+                });
+            });
+        }
+
+        // Format currency inputs
+        function setupCurrencyInputs() {
+            const currencyInputs = document.querySelectorAll('input[type="text"]:not([data-year])');
+            currencyInputs.forEach(input => {
+                input.addEventListener('blur', (e) => {
+                    const value = parseCurrencyInput(e.target.value);
+                    if (!isNaN(value)) {
+                        e.target.value = formatCurrencyInput(value);
+                    }
+                });
+            });
+        }
+
+        // Setup event listeners
+        function setupEventListeners() {
+            const inputs = ['brokerageIncome', 'rothBasis', 'seppBalance', 'helocAmount', 'helocRate', 'annualGrowth'];
+            inputs.forEach(id => {
+                document.getElementById(id).addEventListener('input', renderTable);
+            });
+        }
+
+        // Initialize
+        document.addEventListener('DOMContentLoaded', () => {
+            setupCurrencyInputs();
+            setupEventListeners();
+            renderTable();
+        });
+    </script>
+</body>
+</html>
