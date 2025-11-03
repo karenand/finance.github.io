@@ -1,0 +1,667 @@
+<!doctype html>
+<html>
+
+<head>
+    <meta charset="utf-8" />
+    <title>Burndown + Monte Carlo Simulator</title>
+    <style>
+        body {
+            font-family: system-ui, -apple-system, "Segoe UI", Roboto, Arial;
+            margin: 20px;
+        }
+
+        label {
+            display: block;
+            margin-top: 8px;
+        }
+
+        input[type="number"],
+        input[type="text"],
+        select {
+            width: 160px;
+            margin-left: 6px;
+        }
+
+        .row {
+            display: flex;
+            gap: 24px;
+            flex-wrap: wrap;
+        }
+
+        .card {
+            border: 1px solid #ddd;
+            padding: 12px;
+            border-radius: 6px;
+            min-width: 280px;
+        }
+
+        canvas {
+            max-width: 100%;
+            height: 320px;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 8px;
+        }
+
+        th,
+        td {
+            border: 1px solid #ddd;
+            padding: 6px;
+            text-align: right;
+        }
+    </style>
+    <!-- Chart.js for visualization -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+</head>
+
+<body>
+    <h2>Burndown Calculator with Monte Carlo</h2>
+    <div class="row">
+        <div class="card">
+            <h4>Starting balances</h4>
+            <label>SEPP starting balance
+                <input id="startingSEPP" class="money" type="text" />
+            </label>
+            <label>Remaining IRA balance (non-SEPP)
+                <input id="startingIRA" class="money" type="text" />
+            </label>
+            <label>Brokerage accounts
+                <input id="startingBrokerage" class="money" type="text" />
+            </label>
+            <label>Roth balance
+                <input id="startingRothIRA" class="money" type="text" />
+            </label>
+            <label>Roth available annual withdrawals
+                <input id="startingRothAvailable" class="money" type="text" />
+            </label>
+            <label>Roth availability years
+                <input id="rothAvailYears" type="number" value="5" step="1" />
+            </label>
+
+            <!-- HELOC inputs -->
+            <label>HELOC starting availability
+                <input id="helocLimit" class="money" type="text" />
+            </label>
+            <label>HELOC interest rate (%)
+                <input id="helocRate" type="number" value="7.0" step="0.01" />
+            </label>
+            <label>Annual HELOC repayment (standard)
+                <input id="helocRepay" class="money" type="text" value="0" />
+            </label>
+        </div>
+
+        <div class="card">
+            <h4>SEPP / Amortization</h4>
+            <label>SEPP start date
+                <input id="seppStart" type="text" value="2025-11-01" />
+            </label>
+            <label>SEPP amortization rate (annual %)
+                <input id="seppRate" type="number" value="4.86" step="0.01" />
+            </label>
+            <label>Life expectancy / term (years)
+                <input id="seppTerm" type="number" value="38" step="1" />
+            </label>
+            <label>Payment frequency
+                <select id="seppFreq">
+                    <option value="1">Yearly (1)</option>
+                    <option value="12">Monthly (12)</option>
+                </select>
+            </label>
+            <small>Single-life amortization formula is used to compute fixed SEPP payment.</small>
+        </div>
+
+        <div class="card">
+            <h4>Simulation / spending</h4>
+            <label>Annual spending need
+                <input id="spending" class="money" type="text" value="100000" />
+            </label>
+            <label>Extra withdrawals (annual) beyond SEPP/Roth
+                <input id="extraWithdraw" class="money" type="text" value="0" />
+            </label>
+            <label>Simulation horizon (years)
+                <input id="horizon" type="number" value="40" />
+            </label>
+            <label>Monte Carlo sims
+                <input id="monteCarloRuns" type="number" value="2000" />
+            </label>
+            <label>Annual return mean (%)
+                <input id="returnRate" type="number" value="6" step="0.1" />
+            </label>
+            <label>Annual return volatility (sd %)
+                <input id="returnVolatility" type="number" value="12" step="0.1" />
+            </label>
+        </div>
+    </div>
+
+    <div style="margin-top:12px;">
+        <button id="runBtn">Run simulation</button>
+        <button id="quickBtn">Quick deterministic projection</button>
+    </div>
+
+    <h3>Results</h3>
+    <div style="display:flex; gap:24px; flex-wrap:wrap;">
+        <div style="flex:1; min-width:420px;">
+            <canvas id="chart"></canvas>
+        </div>
+        <div style="width:360px;">
+            <div class="card">
+                <h4>SEPP payment</h4>
+                <div id="seppInfo"></div>
+            </div>
+            <div class="card">
+                <h4>Survival table</h4>
+                <table id="survTable">
+                    <thead>
+                        <tr>
+                            <th>Year</th>
+                            <th>Med</th>
+                            <th>10th</th>
+                            <th>90th</th>
+                            <th>Survive%</th>
+                        </tr>
+                    </thead>
+                    <tbody></tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+    <!-- end results flex container -->
+
+    <div class="card" id="assumptionsCard" style="margin-top:12px;">
+        <h4>Resources & Assumptions</h4>
+        <ul>
+            <li>Market returns: annual draws from the return mean/volatility set in the UI; the same return is applied
+                to all accounts each year.</li>
+            <li>SEPP payment: single-life amortization formula using the specified term and annual rate.</li>
+            <li>Withdrawal order (modeled): SEPP → Roth (up to annual availability) → Brokerage → IRA → HELOC.</li>
+            <li>HELOC model: revolving line with starting availability equal to the HELOC input. Interest accrues
+                annually on outstanding balance; an optional fixed annual repayment attempts to reduce the outstanding
+                balance using brokerage → roth → IRA.</li>
+            <li>No explicit taxes, inflation, or transaction costs are modeled — adjust spending/returns to approximate.
+            </li>
+            <li>Deterministic projection uses the mean return; Monte Carlo uses independent annual draws (runs set in
+                UI).</li>
+            <li>Inputs are formatted as USD. Focus an input to edit the raw number, blur to reformat.</li>
+        </ul>
+        <p>References (examples; replace/add your own):</p>
+        <ul>
+            <li><a href="https://www.irs.gov/retirement-plans/retirement-topics-required-minimum-distributions-rmds"
+                    target="_blank" rel="noopener">IRS — RMD / life-expectancy tables</a></li>
+            <li><a href="https://www.ssa.gov/oact/STATS/table4c6.html" target="_blank" rel="noopener">SSA — Period life
+                    tables</a></li>
+            <li><a href="https://www.fidelity.com/bin-public/060_www_fidelity_com/documents/retirement/single-life-expectancy-table.pdf"
+                    target="_blank" rel="noopener">Fidelity Life Expectancy Tables</a></li>
+            <li><a href="https://www.irs.gov/retirement-plans/substantially-equal-periodic-payments#q9" target="_blank"
+                    rel="noopener">IRS — SEPP guidance</a></li>
+        </ul>
+    </div>
+
+    <script>
+        // Name per developer instruction (not used in UI)
+        const assistantName = "GitHub Copilot";
+
+        // Utilities
+        function randn_bm() {
+            // Box-Muller
+            let u = 0, v = 0;
+            while (u === 0) u = Math.random();
+            while (v === 0) v = Math.random();
+            return Math.sqrt(-2.0 * Math.log(u)) * Math.cos(2.0 * Math.PI * v);
+        }
+
+        function formatUSD(x, digits = 0) {
+            return new Intl.NumberFormat('en-US', {
+                style: 'currency',
+                currency: 'USD',
+                maximumFractionDigits: digits
+            }).format(x);
+        }
+
+        // helpers for formatting/parsing currency inputs
+        function parseCurrency(s) {
+            if (s == null || s === '') return 0;
+            const n = Number(String(s).replace(/[^0-9.-]/g, ''));
+            return isNaN(n) ? 0 : n;
+        }
+
+        function formatCurrencyForInput(n) {
+            return new Intl.NumberFormat('en-US', { maximumFractionDigits: 0 }).format(n);
+        }
+
+        // wire up .money inputs to show formatted USD on blur and raw number on focus
+        function attachMoneyInputs() {
+            document.querySelectorAll('.money').forEach(el => {
+                // initialize display (if element already has a numeric-ish value)
+                if (el.value !== '') el.value = formatCurrencyForInput(parseCurrency(el.value));
+                el.addEventListener('focus', () => {
+                    const raw = parseCurrency(el.value);
+                    el.value = raw ? String(raw) : '';
+                });
+                el.addEventListener('blur', () => {
+                    const raw = parseCurrency(el.value);
+                    el.value = raw ? formatCurrencyForInput(raw) : '';
+                });
+            });
+        }
+
+        function calcSeppPayment(pv, annualRatePct, termYears, freq) {
+            // freq = payments per year (1 or 12)
+            const r = annualRatePct / 100 / freq;
+            const n = termYears * freq;
+            if (r === 0) return pv / n;
+            return pv * (r) / (1 - Math.pow(1 + r, -n));
+        }
+
+        // minimal expense initialization (used by placeholders)
+        function initializeExpenses() {
+            const horizon = parseInt(document.getElementById('horizon')?.value) || 30;
+            const spending = parseCurrency(document.getElementById('spending')?.value) || 0;
+            window.expenses = Array.from({ length: horizon + 1 }, (_, y) => ({ year: y, amount: spending }));
+        }
+
+        // central rendering entry
+        function calculateAndRender() {
+            const runs = parseInt(document.getElementById('monteCarloRuns')?.value) || 0;
+            if (runs > 1) runMonteCarlo();
+            else runDeterministic();
+        }
+
+        // wire run buttons
+        document.getElementById('runBtn').addEventListener('click', () => {
+            calculateAndRender();
+        });
+        document.getElementById('quickBtn').addEventListener('click', () => {
+            // set monteCarloRuns to 0 for deterministic quick
+            document.getElementById('monteCarloRuns').value = '0';
+            calculateAndRender();
+        });
+
+        let chartInstance = null;
+
+        function runMonteCarlo() {
+            const seppStart = new Date(document.getElementById('seppStart').value || '2025-11-01');
+
+            const seppBalance0 = parseCurrency(document.getElementById('startingSEPP').value) || 0;
+            const iraBalance0 = parseCurrency(document.getElementById('startingIRA').value) || 0;
+            const brokerage0 = parseCurrency(document.getElementById('startingBrokerage').value) || 0;
+            const roth0 = parseCurrency(document.getElementById('startingRothIRA').value) || 0;
+
+            const rothAnnAvail = parseCurrency(document.getElementById('startingRothAvailable').value) || 0;
+            const rothYearsAvail = parseInt(document.getElementById('rothAvailYears').value) || 0;
+
+            // HELOC inputs
+            const helocAvail = parseCurrency(document.getElementById('helocLimit').value) || 0;
+            const helocInterest = (parseFloat(document.getElementById('helocRate').value) || 0) / 100;
+            const helocRepay = parseCurrency(document.getElementById('helocRepay').value) || 0;
+
+            const seppRate = parseFloat(document.getElementById('seppRate').value) || 0;
+            const seppTerm = parseFloat(document.getElementById('seppTerm').value) || 0;
+            const seppFreq = parseInt(document.getElementById('seppFreq').value) || 1;
+
+            const spending = parseCurrency(document.getElementById('spending').value) || 0;
+            const extraWithdraw = parseCurrency(document.getElementById('extraWithdraw').value) || 0;
+            const horizon = parseInt(document.getElementById('horizon').value) || 30;
+            const sims = parseInt(document.getElementById('monteCarloRuns').value) || 1000;
+            const mean = (parseFloat(document.getElementById('returnRate').value) || 0) / 100;
+            const sd = (parseFloat(document.getElementById('returnVolatility').value) || 0) / 100;
+
+            // compute SEPP payment (annualized)
+            const seppPaymentPeriod = calcSeppPayment(seppBalance0, seppRate, seppTerm, seppFreq);
+            const seppPaymentPerYear = seppFreq === 12 ? seppPaymentPeriod * 12 : seppPaymentPeriod;
+
+            document.getElementById('seppInfo').innerHTML =
+                `SEPP payment (annual): <strong>${formatUSD(seppPaymentPerYear, 2)}</strong><br/>` +
+                `SEPP start: ${seppStart.toISOString().slice(0, 10)} | term ${seppTerm} yrs | rate ${seppRate}%<br/>` +
+                `HELOC avail: <strong>${formatUSD(helocAvail, 0)}</strong> | interest ${(helocInterest * 100).toFixed(2)}% | annual repay ${formatUSD(helocRepay, 0)}`;
+
+            // arrays to collect totals per year across sims
+            const allTotals = Array.from({ length: horizon + 1 }, () => []);
+            const survivalCount = Array.from({ length: horizon + 1 }, () => 0);
+
+            for (let s = 0; s < sims; s++) {
+                let seppBal = seppBalance0;
+                let iraBal = iraBalance0;
+                let brokerage = brokerage0;
+                let roth = roth0;
+                let rothYearsLeft = rothYearsAvail;
+                let helocOutstanding = 0; // outstanding debt on the line of credit
+
+                // record starting total at year 0
+                allTotals[0].push(seppBal + iraBal + brokerage + roth - helocOutstanding);
+                if (seppBal + iraBal + brokerage + roth - helocOutstanding > 0) survivalCount[0]++;
+
+                for (let y = 1; y <= horizon; y++) {
+                    // sample annual return (simple model)
+                    const ret = mean + sd * randn_bm();
+                    const growthFactor = 1 + ret;
+
+                    // apply growth to each account
+                    seppBal *= growthFactor;
+                    iraBal *= growthFactor;
+                    brokerage *= growthFactor;
+                    roth *= growthFactor;
+
+                    // HELOC interest accrues on outstanding balance at start of year
+                    if (helocOutstanding > 0) {
+                        helocOutstanding *= (1 + helocInterest);
+                    }
+
+                    // Withdraw SEPP payment from SEPP account (annualized)
+                    let need = spending + extraWithdraw; // total required this year
+                    let seppPaid = Math.min(seppPaymentPerYear, seppBal);
+                    seppBal -= seppPaid;
+                    need -= seppPaid;
+
+                    // Roth withdrawals allowed (tax-free) for first N years up to rothAnnAvail
+                    if (need > 0 && rothYearsLeft > 0 && roth > 0) {
+                        const avail = Math.min(rothAnnAvail, roth);
+                        const used = Math.min(avail, need);
+                        roth -= used;
+                        need -= used;
+                        rothYearsLeft--;
+                    }
+
+                    // If still need, take from brokerage
+                    if (need > 0 && brokerage > 0) {
+                        const used = Math.min(brokerage, need);
+                        brokerage -= used;
+                        need -= used;
+                    }
+
+                    // If still need, take from remaining IRA
+                    if (need > 0 && iraBal > 0) {
+                        const used = Math.min(iraBal, need);
+                        iraBal -= used;
+                        need -= used;
+                    }
+
+                    // If still need, draw from HELOC up to available credit
+                    if (need > 0 && helocOutstanding < helocAvail) {
+                        const canDraw = helocAvail - helocOutstanding;
+                        const draw = Math.min(canDraw, need);
+                        helocOutstanding += draw;
+                        need -= draw;
+                    }
+
+                    // After withdrawals, attempt annual HELOC repayment (taken from brokerage -> roth -> IRA)
+                    if (helocRepay > 0 && helocOutstanding > 0) {
+                        let toPay = Math.min(helocRepay, helocOutstanding);
+                        const payFromBroker = Math.min(brokerage, toPay);
+                        brokerage -= payFromBroker;
+                        toPay -= payFromBroker;
+                        const payFromRoth = Math.min(roth, toPay);
+                        roth -= payFromRoth;
+                        toPay -= payFromRoth;
+                        const payFromIra = Math.min(iraBal, toPay);
+                        iraBal -= payFromIra;
+                        toPay -= payFromIra;
+                        const paid = helocRepay - toPay;
+                        helocOutstanding = Math.max(0, helocOutstanding - paid);
+                    }
+
+                    // floor balances at zero
+                    seppBal = Math.max(0, seppBal);
+                    iraBal = Math.max(0, iraBal);
+                    brokerage = Math.max(0, brokerage);
+                    roth = Math.max(0, roth);
+
+                    const total = seppBal + iraBal + brokerage + roth - helocOutstanding;
+                    allTotals[y].push(total);
+                    if (total > 0) survivalCount[y]++;
+                }
+            }
+
+            // compute percentiles and median
+            const med = [];
+            const p10 = [];
+            const p90 = [];
+            const survivePct = [];
+            for (let y = 0; y <= horizon; y++) {
+                const arr = allTotals[y].slice().sort((a, b) => a - b);
+                const getPct = (p) => {
+                    if (arr.length === 0) return 0;
+                    const idx = Math.floor((p / 100) * (arr.length - 1));
+                    return arr[idx];
+                };
+                med.push(getPct(50));
+                p10.push(getPct(10));
+                p90.push(getPct(90));
+                survivePct.push((survivalCount[y] / sims) * 100);
+            }
+
+            // draw chart (median with 10/90 band)
+            const labels = Array.from({ length: horizon + 1 }, (_, i) => i);
+            const ctx = document.getElementById('chart').getContext('2d');
+            if (chartInstance) chartInstance.destroy();
+            chartInstance = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels,
+                    datasets: [
+                        { label: 'Median total', data: med, borderColor: '#2b7', backgroundColor: 'rgba(43,183,119,0.08)', fill: false },
+                        { label: '10th percentile', data: p10, borderColor: '#e85', borderDash: [6, 4], fill: '+1' },
+                        { label: '90th percentile', data: p90, borderColor: '#58f', borderDash: [6, 4], fill: false }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    interaction: { mode: 'index', intersect: false },
+                    plugins: {
+                        tooltip: { callbacks: { label: ctx => formatUSD(Number(ctx.raw), 0) } }
+                    },
+                    scales: {
+                        y: {
+                            ticks: {
+                                callback: v => formatUSD(v, 0)
+                            }
+                        },
+                        x: { title: { display: true, text: 'Years from start' } }
+                    }
+                }
+            });
+
+            // fill survival table with med/p10/p90 and survive%
+            const tbody = document.querySelector('#survTable tbody');
+            tbody.innerHTML = '';
+            for (let y = 0; y <= horizon; y += Math.max(1, Math.ceil(horizon / 20))) {
+                const row = document.createElement('tr');
+                const yr = document.createElement('td'); yr.textContent = y; yr.style.textAlign = 'center';
+                const m = document.createElement('td'); m.textContent = formatUSD(Math.round(med[y]), 0);
+                const t10 = document.createElement('td'); t10.textContent = formatUSD(Math.round(p10[y]), 0);
+                const t90 = document.createElement('td'); t90.textContent = formatUSD(Math.round(p90[y]), 0);
+                const sp = document.createElement('td'); sp.textContent = (survivePct[y]).toFixed(1) + '%';
+                row.appendChild(yr); row.appendChild(m); row.appendChild(t10); row.appendChild(t90); row.appendChild(sp);
+                tbody.appendChild(row);
+            }
+        }
+
+        function runDeterministic() {
+            // single deterministic projection using mean return (no randomness)
+            const seppBalance0 = parseCurrency(document.getElementById('startingSEPP').value) || 0;
+            const iraBalance0 = parseCurrency(document.getElementById('startingIRA').value) || 0;
+            const brokerage0 = parseCurrency(document.getElementById('startingBrokerage').value) || 0;
+            const roth0 = parseCurrency(document.getElementById('startingRothIRA').value) || 0;
+
+            const rothAnnAvail = parseCurrency(document.getElementById('startingRothAvailable').value) || 0;
+            const rothYearsAvail = parseInt(document.getElementById('rothAvailYears').value) || 0;
+
+            // HELOC inputs
+            const helocAvail = parseCurrency(document.getElementById('helocLimit').value) || 0;
+            const helocInterest = (parseFloat(document.getElementById('helocRate').value) || 0) / 100;
+            const helocRepay = parseCurrency(document.getElementById('helocRepay').value) || 0;
+
+            const seppRate = parseFloat(document.getElementById('seppRate').value) || 0;
+            const seppTerm = parseFloat(document.getElementById('seppTerm').value) || 0;
+            const seppFreq = parseInt(document.getElementById('seppFreq').value) || 1;
+
+            const spending = parseCurrency(document.getElementById('spending').value) || 0;
+            const extraWithdraw = parseCurrency(document.getElementById('extraWithdraw').value) || 0;
+            const horizon = parseInt(document.getElementById('horizon').value) || 30;
+            const mean = (parseFloat(document.getElementById('returnRate').value) || 0) / 100;
+
+            const seppPaymentPerYear = seppFreq === 12 ? calcSeppPayment(seppBalance0, seppRate, seppTerm, seppFreq) * 12
+                : calcSeppPayment(seppBalance0, seppRate, seppTerm, seppFreq);
+
+            document.getElementById('seppInfo').innerHTML =
+                `SEPP payment (annual): <strong>${formatUSD(seppPaymentPerYear, 2)}</strong> (deterministic projection)<br/>` +
+                `HELOC avail: <strong>${formatUSD(helocAvail, 0)}</strong> | interest ${(helocInterest * 100).toFixed(2)}% | annual repay ${formatUSD(helocRepay, 0)}`;
+
+            let seppBal = seppBalance0, iraBal = iraBalance0, brokerage = brokerage0, roth = roth0, rothYearsLeft = rothYearsAvail;
+            let helocOutstanding = 0;
+            const totals = [];
+            totals.push(seppBal + iraBal + brokerage + roth - helocOutstanding);
+
+            for (let y = 1; y <= horizon; y++) {
+                const growth = 1 + mean;
+                seppBal *= growth;
+                iraBal *= growth;
+                brokerage *= growth;
+                roth *= growth;
+
+                // HELOC interest accrues
+                if (helocOutstanding > 0) helocOutstanding *= (1 + helocInterest);
+
+                let need = spending + extraWithdraw;
+                let seppPaid = Math.min(seppPaymentPerYear, seppBal);
+                seppBal -= seppPaid;
+                need -= seppPaid;
+
+                if (need > 0 && rothYearsLeft > 0 && roth > 0) {
+                    const avail = Math.min(rothAnnAvail, roth);
+                    const used = Math.min(avail, need);
+                    roth -= used;
+                    need -= used;
+                    rothYearsLeft--;
+                }
+                if (need > 0 && brokerage > 0) {
+                    const used = Math.min(brokerage, need);
+                    brokerage -= used;
+                    need -= used;
+                }
+                if (need > 0 && iraBal > 0) {
+                    const used = Math.min(iraBal, need);
+                    iraBal -= used;
+                    need -= used;
+                }
+
+                // draw from HELOC if still needed
+                if (need > 0 && helocOutstanding < helocAvail) {
+                    const draw = Math.min(helocAvail - helocOutstanding, need);
+                    helocOutstanding += draw;
+                    need -= draw;
+                }
+
+                // attempt repayment
+                if (helocRepay > 0 && helocOutstanding > 0) {
+                    let toPay = Math.min(helocRepay, helocOutstanding);
+                    const payFromBroker = Math.min(brokerage, toPay);
+                    brokerage -= payFromBroker;
+                    toPay -= payFromBroker;
+                    const payFromRoth = Math.min(roth, toPay);
+                    roth -= payFromRoth;
+                    toPay -= payFromRoth;
+                    const payFromIra = Math.min(iraBal, toPay);
+                    iraBal -= payFromIra;
+                    toPay -= payFromIra;
+                    const paid = helocRepay - toPay;
+                    helocOutstanding = Math.max(0, helocOutstanding - paid);
+                }
+
+                seppBal = Math.max(0, seppBal);
+                iraBal = Math.max(0, iraBal);
+                brokerage = Math.max(0, brokerage);
+                roth = Math.max(0, roth);
+
+                totals.push(seppBal + iraBal + brokerage + roth - helocOutstanding);
+            }
+
+            const labels = Array.from({ length: totals.length }, (_, i) => i);
+            const ctx = document.getElementById('chart').getContext('2d');
+            if (chartInstance) chartInstance.destroy();
+            chartInstance = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels,
+                    datasets: [
+                        { label: 'Deterministic total', data: totals, borderColor: '#27a', backgroundColor: 'rgba(39,122,170,0.08)', fill: true }
+                    ]
+                },
+                options: {
+                    scales: {
+                        y: { ticks: { callback: v => formatUSD(v, 0) } }
+                    }
+                }
+            });
+
+            // single row summary table
+            const tbody = document.querySelector('#survTable tbody');
+            tbody.innerHTML = '';
+            for (let y = 0; y < totals.length; y += Math.max(1, Math.ceil(totals.length / 20))) {
+                const row = document.createElement('tr');
+                const yr = document.createElement('td'); yr.textContent = y; yr.style.textAlign = 'center';
+                const m = document.createElement('td'); m.textContent = formatUSD(Math.round(totals[y]), 0);
+                const t10 = document.createElement('td'); t10.textContent = '-';
+                const t90 = document.createElement('td'); t90.textContent = '-';
+                const sp = document.createElement('td'); sp.textContent = (totals[y] > 0 ? '100%' : '0%');
+                row.appendChild(yr); row.appendChild(m); row.appendChild(t10); row.appendChild(t90); row.appendChild(sp);
+                tbody.appendChild(row);
+            }
+        }
+
+        // Initialize when DOM ready — centralized constants for easy changes
+        document.addEventListener('DOMContentLoaded', () => {
+            const INIT = {
+                startingBrokerage: 500000,
+                startingIRA: 500000,
+                startingSEPP: 500000,
+                startingRothIRA: 300000,
+                startingRothAvailable: 120000,
+                seppRate: 4.86,
+                returnRate: 5.0,
+                inflationRate: 4.0,
+                taxRate: 15.0,
+                helocLimit: 200000,
+                helocRate: 8.0,
+                homeSaleYear: 8,
+                netHomeSale: 1692000,
+                newHomePurchase: true,
+                newHomeMortgage: 4000,
+                useMonteCarloSimulation: false,
+                monteCarloRuns: 1000,
+                returnVolatility: 12,
+                maxAnnualReturn: 25,
+                minAnnualReturn: -20
+            };
+
+            // Apply constants to inputs if present (IDs must match keys)
+            Object.entries(INIT).forEach(([key, val]) => {
+                const el = document.getElementById(key);
+                if (!el) return;
+                if (el.type === 'checkbox') el.checked = Boolean(val);
+                else el.value = val;
+            });
+
+            // attach currency formatting to money inputs AFTER populating initial values
+            attachMoneyInputs();
+
+            // Ensure dependent UI matches initial flags (if you add those elements)
+            const mcSettings = document.getElementById('monteCarloSettings');
+            const newMortgageGroup = document.getElementById('newMortgageGroup');
+            if (mcSettings) mcSettings.style.display = INIT.useMonteCarloSimulation ? 'block' : 'none';
+            if (newMortgageGroup) newMortgageGroup.style.display = INIT.newHomePurchase ? 'flex' : 'none';
+
+            // Initialize expense rows and render the model
+            initializeExpenses();
+
+            // If INIT.useMonteCarloSimulation is true, set runs; otherwise deterministic
+            document.getElementById('monteCarloRuns').value = INIT.useMonteCarloSimulation ? INIT.monteCarloRuns : '0';
+
+            calculateAndRender();
+        });
+    </script>
+</body>
+
+</html>
