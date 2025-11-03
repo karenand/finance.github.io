@@ -1,0 +1,1606 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Retirement Drawdown Analysis</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background-color: #f9fafb;
+            padding: 20px;
+            line-height: 1.5;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+
+        .card {
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+            padding: 24px;
+            margin-bottom: 24px;
+        }
+
+        h1 {
+            font-size: 28px;
+            color: #1f2937;
+            margin-bottom: 8px;
+        }
+
+        h2 {
+            font-size: 20px;
+            color: #1f2937;
+            margin-bottom: 16px;
+        }
+
+        h3 {
+            font-size: 16px;
+            color: #374151;
+            margin-bottom: 12px;
+            font-weight: 600;
+        }
+
+        .subtitle {
+            color: #6b7280;
+            margin-bottom: 16px;
+        }
+
+        .metrics-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 16px;
+            margin-bottom: 24px;
+        }
+
+        .metric-card {
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+            padding: 20px;
+            border: 2px solid transparent;
+        }
+
+        .metric-card.success {
+            border-color: #10b981;
+        }
+
+        .metric-card.failure {
+            border-color: #ef4444;
+        }
+
+        .metric-label {
+            font-size: 14px;
+            color: #6b7280;
+            margin-bottom: 8px;
+        }
+
+        .metric-value {
+            font-size: 28px;
+            font-weight: bold;
+        }
+
+        .metric-value.blue {
+            color: #3b82f6;
+        }
+
+        .metric-value.orange {
+            color: #f97316;
+        }
+
+        .metric-value.green {
+            color: #10b981;
+        }
+
+        .metric-value.red {
+            color: #ef4444;
+        }
+
+        .input-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 16px;
+            margin-bottom: 16px;
+        }
+
+        .input-group {
+            display: flex;
+            flex-direction: column;
+        }
+
+        label {
+            font-size: 14px;
+            font-weight: 500;
+            color: #374151;
+            margin-bottom: 4px;
+        }
+
+        input[type="number"],
+        input[type="text"] {
+            padding: 8px 12px;
+            border: 1px solid #d1d5db;
+            border-radius: 6px;
+            font-size: 14px;
+        }
+
+        input[type="checkbox"] {
+            width: 20px;
+            height: 20px;
+            cursor: pointer;
+        }
+
+        .checkbox-label {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            cursor: pointer;
+        }
+
+        button {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 6px;
+            font-size: 14px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: background-color 0.2s;
+        }
+
+        .btn-primary {
+            background-color: #3b82f6;
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background-color: #2563eb;
+        }
+
+        .btn-secondary {
+            background-color: #6b7280;
+            color: white;
+        }
+
+        .btn-secondary:hover {
+            background-color: #4b5563;
+        }
+
+        .expandable-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            cursor: pointer;
+            padding: 16px;
+            background: white;
+            border-radius: 8px;
+            margin-bottom: 24px;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+        }
+
+        .expandable-header:hover {
+            background-color: #f9fafb;
+        }
+
+        .expandable-content {
+            display: none;
+            padding: 0 16px 16px;
+        }
+
+        .expandable-content.show {
+            display: block;
+        }
+
+        .table-container {
+            max-height: 400px;
+            overflow-y: auto;
+            border: 1px solid #e5e7eb;
+            border-radius: 6px;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 13px;
+        }
+
+        th {
+            position: sticky;
+            top: 0;
+            background-color: #f3f4f6;
+            padding: 12px 8px;
+            text-align: left;
+            font-weight: 600;
+            border-bottom: 1px solid #e5e7eb;
+        }
+
+        th.right,
+        td.right {
+            text-align: right;
+        }
+
+        td {
+            padding: 8px;
+            border-bottom: 1px solid #f3f4f6;
+        }
+
+        tr:nth-child(even) {
+            background-color: #f9fafb;
+        }
+
+        td input {
+            width: 100px;
+            padding: 4px 8px;
+        }
+
+        .chart-container {
+            position: relative;
+            height: 400px;
+            margin-top: 16px;
+        }
+
+        .alert {
+            padding: 12px;
+            border-radius: 6px;
+            margin-top: 16px;
+            font-size: 14px;
+        }
+
+        .alert-blue {
+            background-color: #eff6ff;
+            border: 1px solid #dbeafe;
+            color: #1e40af;
+        }
+
+        .alert-purple {
+            background-color: #faf5ff;
+            border: 1px solid #e9d5ff;
+            color: #7c3aed;
+        }
+
+        .monte-carlo-section {
+            background-color: #faf5ff;
+            border: 1px solid #e9d5ff;
+            border-radius: 8px;
+            padding: 16px;
+            margin-bottom: 16px;
+        }
+
+        .distribution-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 12px;
+            margin-top: 16px;
+        }
+
+        .dist-card {
+            padding: 12px;
+            border-radius: 6px;
+            border: 1px solid;
+        }
+
+        .dist-card.red {
+            background-color: #fef2f2;
+            border-color: #fecaca;
+        }
+
+        .dist-card.orange {
+            background-color: #fff7ed;
+            border-color: #fed7aa;
+        }
+
+        .dist-card.green {
+            background-color: #f0fdf4;
+            border-color: #bbf7d0;
+        }
+
+        .dist-card.blue {
+            background-color: #eff6ff;
+            border-color: #bfdbfe;
+        }
+
+        .dist-card.purple {
+            background-color: #faf5ff;
+            border-color: #e9d5ff;
+        }
+
+        .dist-label {
+            font-size: 11px;
+            font-weight: 500;
+            margin-bottom: 4px;
+            text-transform: uppercase;
+        }
+
+        .dist-value {
+            font-size: 16px;
+            font-weight: bold;
+        }
+
+        .button-group {
+            display: flex;
+            gap: 12px;
+            margin: 16px 0;
+        }
+
+        .home-sale-section {
+            border-top: 1px solid #e5e7eb;
+            padding-top: 16px;
+            margin-top: 16px;
+        }
+
+        .starting-assets-section {
+            background-color: #eff6ff;
+            border: 1px solid #dbeafe;
+            border-radius: 8px;
+            padding: 16px;
+            margin-bottom: 16px;
+        }
+
+        .editable-cell {
+            cursor: pointer;
+            padding: 4px;
+            border-radius: 3px;
+        }
+
+        .editable-cell:hover {
+            background-color: #fef3c7;
+        }
+
+        .small-text {
+            font-size: 11px;
+            color: #6b7280;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <div class="card">
+            <h1>Retirement Drawdown Analysis</h1>
+            <p class="subtitle">Age 46, MFJ with 2 dependents</p>
+        </div>
+
+        <div class="metrics-grid" id="metricsGrid"></div>
+
+        <div id="monteCarloDistribution"></div>
+
+        <div class="card">
+            <h2>Key Assumptions</h2>
+
+            <div class="starting-assets-section">
+                <h3 style="color: #1e40af; margin-bottom: 12px;">Starting Assets</h3>
+                <div class="input-grid">
+                    <div class="input-group">
+                        <label>Brokerage ($)</label>
+                        <input type="number" id="startingBrokerage" value="750000" step="10000">
+                    </div>
+                    <div class="input-group">
+                        <label>Traditional IRA ($)</label>
+                        <input type="number" id="startingIRA" value="2000000" step="10000">
+                    </div>
+                    <div class="input-group">
+                        <label>IRA SEPP 72(t) ($)</label>
+                        <input type="number" id="startingSEPP" value="700000" step="10000">
+                    </div>
+                    <div class="input-group">
+                        <label>Roth IRA ($)</label>
+                        <input type="number" id="startingRothIRA" value="300000" step="10000">
+                    </div>
+                    <div class="input-group">
+                        <label>Roth Available ($)</label>
+                        <input type="number" id="startingRothAvailable" value="120000" step="10000">
+                        <small style="color: #1e40af; font-size: 12px;">Contributions only</small>
+                    </div>
+                    <div class="input-group">
+                        <label>SEPP Rate (%)</label>
+                        <input type="number" id="seppRate" value="4.86" step="0.01">
+                        <small style="color: #1e40af; font-size: 12px;">Single life amortization</small>
+                    </div>
+                </div>
+            </div>
+
+            <div class="monte-carlo-section">
+                <label class="checkbox-label">
+                    <input type="checkbox" id="useMonteCarloSimulation">
+                    <div>
+                        <div style="font-size: 18px; font-weight: 600; color: #7c3aed;">Use Monte Carlo Simulation</div>
+                        <div style="font-size: 14px; color: #6b21a8;">Run multiple scenarios with varying market returns
+                        </div>
+                    </div>
+                </label>
+
+                <div id="monteCarloSettings" style="display: none; margin-top: 16px;">
+                    <div class="input-grid">
+                        <div class="input-group">
+                            <label>Number of Simulations</label>
+                            <input type="number" id="monteCarloRuns" value="1000" step="100" min="100" max="10000">
+                        </div>
+                        <div class="input-group">
+                            <label>Return Volatility (%)</label>
+                            <input type="number" id="returnVolatility" value="12" step="0.5">
+                            <small style="color: #7c3aed; font-size: 12px;">Standard deviation (typical: 10-15%)</small>
+                        </div>
+                        <div class="input-group">
+                            <label>Max Annual Return (%)</label>
+                            <input type="number" id="maxAnnualReturn" value="25" step="1">
+                            <small style="color: #7c3aed; font-size: 12px;">Cap on best-case years</small>
+                        </div>
+                        <div class="input-group">
+                            <label>Min Annual Return (%)</label>
+                            <input type="number" id="minAnnualReturn" value="-20" step="1">
+                            <small style="color: #7c3aed; font-size: 12px;">Cap on worst-case years</small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="input-grid">
+                <div class="input-group">
+                    <label>Return Rate (%)</label>
+                    <input type="number" id="returnRate" value="5.0" step="0.1">
+                </div>
+                <div class="input-group">
+                    <label>Inflation Rate (%)</label>
+                    <input type="number" id="inflationRate" value="4.0" step="0.1">
+                </div>
+                <div class="input-group">
+                    <label>Tax Rate (%)</label>
+                    <input type="number" id="taxRate" value="25.0" step="0.5">
+                </div>
+                <div class="input-group">
+                    <label>HELOC Limit ($)</label>
+                    <input type="number" id="helocLimit" value="200000" step="10000">
+                </div>
+                <div class="input-group">
+                    <label>HELOC Rate (%)</label>
+                    <input type="number" id="helocRate" value="8.0" step="0.1">
+                </div>
+            </div>
+
+            <div class="home-sale-section">
+                <h3>Home Sale & Purchase</h3>
+                <div class="input-grid">
+                    <div class="input-group">
+                        <label>Home Sale Year</label>
+                        <input type="number" id="homeSaleYear" value="8">
+                    </div>
+                    <div class="input-group">
+                        <label>Net Home Sale Proceeds ($)</label>
+                        <input type="number" id="netHomeSale" value="1692000" step="10000">
+                        <small style="color: #6b7280; font-size: 12px;">After selling costs</small>
+                    </div>
+                    <div class="input-group">
+                        <label class="checkbox-label">
+                            <input type="checkbox" id="newHomePurchase" checked>
+                            <span>Buy New Home?</span>
+                        </label>
+                    </div>
+                    <div class="input-group" id="newMortgageGroup">
+                        <label>New Mortgage (Monthly)</label>
+                        <input type="number" id="newHomeMortgage" value="4000">
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="expandable-header" onclick="toggleExpenseEditor()">
+                <div>
+                    <h2 style="margin: 0;">Monthly Expense Editor</h2>
+                    <p class="subtitle" style="margin: 0;">Customize expenses for each year of retirement</p>
+                </div>
+                <span id="expandIcon">▼</span>
+            </div>
+            <div class="expandable-content" id="expenseEditor">
+                <div class="button-group">
+                    <button class="btn-primary" onclick="applyInflation()">Apply Inflation</button>
+                    <button class="btn-secondary" onclick="resetExpenses()">Reset to Defaults</button>
+                </div>
+
+                <div class="table-container">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Year</th>
+                                <th>Age</th>
+                                <th class="right">Mortgage</th>
+                                <th class="right">Food</th>
+                                <th class="right">Utilities</th>
+                                <th class="right">Other</th>
+                                <th class="right">Slush/Annual</th>
+                                <th class="right">Monthly Total</th>
+                                <th class="right">Annual Total</th>
+                            </tr>
+                        </thead>
+                        <tbody id="expenseTableBody"></tbody>
+                    </table>
+                </div>
+
+                <div class="alert alert-blue">
+                    <strong>Tip:</strong> Use the "Slush/Annual" column for recurring annual expenses like travel,
+                    gifts, hobbies, or additional discretionary spending. The "Apply Inflation" button will inflate all
+                    expenses including slush amounts.
+                </div>
+            </div>
+        </div>
+
+        <div class="card">
+            <h2 id="chartTitle">Asset Drawdown Over Time</h2>
+            <div class="chart-container">
+                <canvas id="assetChart"></canvas>
+            </div>
+        </div>
+
+        <div class="card">
+            <h2 id="totalAssetsChartTitle">Net Assets & HELOC Balance</h2>
+            <div class="chart-container">
+                <canvas id="totalAssetsChart"></canvas>
+            </div>
+            <div id="monteCarloSummary"></div>
+        </div>
+
+        <div class="card">
+            <div class="expandable-header" onclick="toggleYearByYear()">
+                <div>
+                    <h2 style="margin: 0;">Year-by-Year Breakdown</h2>
+                    <p class="subtitle" style="margin: 0;">Detailed projection with editable values</p>
+                </div>
+                <span id="yearByYearIcon">▼</span>
+            </div>
+            <div class="expandable-content" id="yearByYearContent">
+                <div class="alert alert-blue" style="margin-bottom: 16px;">
+                    <strong>Note:</strong> Click any numeric value to edit it. Changes will override the calculated
+                    value for that year only.
+                </div>
+                <div class="table-container" style="max-height: 500px;">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Year</th>
+                                <th>Age</th>
+                                <th class="right">Brokerage</th>
+                                <th class="right">IRA</th>
+                                <th class="right">IRA SEPP</th>
+                                <th class="right">Roth IRA</th>
+                                <th class="right">Roth Avail</th>
+                                <th class="right">HELOC</th>
+                                <th class="right">Total Assets</th>
+                                <th class="right">Expenses</th>
+                            </tr>
+                        </thead>
+                        <tbody id="yearByYearBody"></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Global state
+        let yearlyExpenses = [];
+        let assetChart = null;
+        let totalAssetsChart = null;
+        let calculatedData = [];
+        let dataOverrides = {}; // Store manual overrides
+
+        // Initialize expenses
+        function initializeExpenses() {
+            yearlyExpenses = [];
+            for (let i = 0; i < 50; i++) {
+                yearlyExpenses.push({
+                    year: i,
+                    mortgage: 4000,
+                    food: 2500,
+                    utilities: 1500,
+                    other: 5000,
+                    slush: 2000
+                });
+            }
+            renderExpenseTable();
+        }
+
+        // Format currency
+        function formatCurrency(value) {
+            return new Intl.NumberFormat('en-US', {
+                style: 'currency',
+                currency: 'USD',
+                minimumFractionDigits: 0,
+                maximumFractionDigits: 0
+            }).format(value);
+        }
+
+        // Toggle year by year
+        function toggleYearByYear() {
+            const content = document.getElementById('yearByYearContent');
+            const icon = document.getElementById('yearByYearIcon');
+            content.classList.toggle('show');
+            icon.textContent = content.classList.contains('show') ? '▲' : '▼';
+
+            if (content.classList.contains('show') && calculatedData.length > 0) {
+                renderYearByYearTable();
+            }
+        }
+
+        // Make cell editable
+        function makeEditable(year, field, currentValue) {
+            const cellId = `cell-${year}-${field}`;
+            const cell = document.getElementById(cellId);
+            if (!cell) return;
+
+            const input = document.createElement('input');
+            input.type = 'number';
+            input.value = currentValue;
+            input.style.width = '100%';
+            input.style.padding = '4px';
+            input.style.border = '2px solid #3b82f6';
+
+            cell.innerHTML = '';
+            cell.appendChild(input);
+            input.focus();
+            input.select();
+
+            function saveValue() {
+                const newValue = parseFloat(input.value) || 0;
+                if (!dataOverrides[year]) dataOverrides[year] = {};
+                dataOverrides[year][field] = newValue;
+
+                // Recalculate from this year forward
+                recalculateFromYear(year);
+                renderYearByYearTable();
+                renderCharts(calculatedData);
+                renderMetrics(calculatedData);
+            }
+
+            input.addEventListener('blur', saveValue);
+            input.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter') saveValue();
+                if (e.key === 'Escape') renderYearByYearTable();
+            });
+        }
+
+        // Recalculate from a specific year
+        function recalculateFromYear(startYear) {
+            // This is a simplified recalc - for production you'd want full recalc logic
+            calculateAndRender();
+        }
+
+        // Render year by year table
+        function renderYearByYearTable() {
+            const tbody = document.getElementById('yearByYearBody');
+            tbody.innerHTML = '';
+
+            calculatedData.forEach((row, idx) => {
+                const tr = document.createElement('tr');
+
+                const fields = ['brokerage', 'ira', 'iraSepp', 'rothIra', 'rothAvailable', 'helocBalance', 'totalAssets', 'expenses'];
+
+                tr.innerHTML = `
+                    <td>${row.year}</td>
+                    <td>${row.age}</td>
+                    <td class="right"><span class="editable-cell" id="cell-${row.year}-brokerage" onclick="makeEditable(${row.year}, 'brokerage', ${row.brokerage})">${formatCurrency(row.brokerage)}</span></td>
+                    <td class="right"><span class="editable-cell" id="cell-${row.year}-ira" onclick="makeEditable(${row.year}, 'ira', ${row.ira})">${formatCurrency(row.ira)}</span></td>
+                    <td class="right"><span class="editable-cell" id="cell-${row.year}-iraSepp" onclick="makeEditable(${row.year}, 'iraSepp', ${row.iraSepp})">${formatCurrency(row.iraSepp)}</span></td>
+                    <td class="right"><span class="editable-cell" id="cell-${row.year}-rothIra" onclick="makeEditable(${row.year}, 'rothIra', ${row.rothIra})">${formatCurrency(row.rothIra)}</span></td>
+                    <td class="right"><span class="editable-cell" id="cell-${row.year}-rothAvailable" onclick="makeEditable(${row.year}, 'rothAvailable', ${row.rothAvailable})">${formatCurrency(row.rothAvailable)}</span></td>
+                    <td class="right"><span class="editable-cell" id="cell-${row.year}-helocBalance" onclick="makeEditable(${row.year}, 'helocBalance', ${row.helocBalance})">${formatCurrency(row.helocBalance)}</span></td>
+                    <td class="right" style="font-weight: 600;"><span class="editable-cell" id="cell-${row.year}-totalAssets" onclick="makeEditable(${row.year}, 'totalAssets', ${row.totalAssets})">${formatCurrency(row.totalAssets)}</span></td>
+                    <td class="right"><span class="editable-cell" id="cell-${row.year}-expenses" onclick="makeEditable(${row.year}, 'expenses', ${row.expenses})">${formatCurrency(row.expenses)}</span></td>
+                `;
+
+                tbody.appendChild(tr);
+            });
+        }
+
+        // Toggle expense editor
+        function toggleExpenseEditor() {
+            const editor = document.getElementById('expenseEditor');
+            const icon = document.getElementById('expandIcon');
+            editor.classList.toggle('show');
+            icon.textContent = editor.classList.contains('show') ? '▲' : '▼';
+        }
+
+        // Render expense table
+        function renderExpenseTable() {
+            const tbody = document.getElementById('expenseTableBody');
+            tbody.innerHTML = '';
+
+            yearlyExpenses.forEach((expense, idx) => {
+                const monthlyTotal = expense.mortgage + expense.food + expense.utilities + expense.other + expense.slush;
+                const annualTotal = monthlyTotal * 12;
+
+                const row = document.createElement('tr');
+                row.innerHTML = `
+                    <td>${idx}</td>
+                    <td>${46 + idx}</td>
+                    <td class="right"><input type="number" value="${expense.mortgage}" onchange="updateExpense(${idx}, 'mortgage', this.value)"></td>
+                    <td class="right"><input type="number" value="${expense.food}" onchange="updateExpense(${idx}, 'food', this.value)"></td>
+                    <td class="right"><input type="number" value="${expense.utilities}" onchange="updateExpense(${idx}, 'utilities', this.value)"></td>
+                    <td class="right"><input type="number" value="${expense.other}" onchange="updateExpense(${idx}, 'other', this.value)"></td>
+                    <td class="right"><input type="number" value="${expense.slush}" onchange="updateExpense(${idx}, 'slush', this.value)"></td>
+                    <td class="right" style="font-weight: 500;">$${monthlyTotal.toLocaleString()}</td>
+                    <td class="right" style="font-weight: 600;">$${annualTotal.toLocaleString()}</td>
+                `;
+                tbody.appendChild(row);
+            });
+        }
+
+        // Update single expense
+        function updateExpense(year, field, value) {
+            yearlyExpenses[year][field] = parseFloat(value) || 0;
+            calculateAndRender();
+        }
+
+        // Apply inflation
+        function applyInflation() {
+            const inflationRate = parseFloat(document.getElementById('inflationRate').value) / 100;
+            const base = yearlyExpenses[0];
+
+            for (let i = 1; i < yearlyExpenses.length; i++) {
+                const multiplier = Math.pow(1 + inflationRate, i);
+                const homeSaleYear = parseInt(document.getElementById('homeSaleYear').value);
+                const newHomePurchase = document.getElementById('newHomePurchase').checked;
+                const newHomeMortgage = parseFloat(document.getElementById('newHomeMortgage').value);
+
+                let mortgageAmount = base.mortgage;
+                if (i > homeSaleYear && newHomePurchase) {
+                    mortgageAmount = newHomeMortgage;
+                } else if (i > homeSaleYear && !newHomePurchase) {
+                    mortgageAmount = 0;
+                }
+
+                yearlyExpenses[i] = {
+                    year: i,
+                    mortgage: mortgageAmount * multiplier,
+                    food: base.food * multiplier,
+                    utilities: base.utilities * multiplier,
+                    other: base.other * multiplier,
+                    slush: base.slush * multiplier
+                };
+            }
+
+            renderExpenseTable();
+            calculateAndRender();
+        }
+
+        // Reset expenses
+        function resetExpenses() {
+            const homeSaleYear = parseInt(document.getElementById('homeSaleYear').value);
+            const newHomePurchase = document.getElementById('newHomePurchase').checked;
+            const newHomeMortgage = parseFloat(document.getElementById('newHomeMortgage').value);
+
+            yearlyExpenses = [];
+            for (let i = 0; i < 50; i++) {
+                let mortgageAmount = 4000;
+                if (i > homeSaleYear && newHomePurchase) {
+                    mortgageAmount = newHomeMortgage;
+                } else if (i > homeSaleYear && !newHomePurchase) {
+                    mortgageAmount = 0;
+                }
+
+                yearlyExpenses.push({
+                    year: i,
+                    mortgage: mortgageAmount,
+                    food: 2500,
+                    utilities: 1500,
+                    other: 5000,
+                    slush: 2000
+                });
+            }
+
+            renderExpenseTable();
+            calculateAndRender();
+        }
+
+        // Generate random return with caps
+        function generateRandomReturn(mean, stdDev, maxReturn, minReturn) {
+            const u1 = Math.random();
+            const u2 = Math.random();
+            const z = Math.sqrt(-2 * Math.log(u1)) * Math.cos(2 * Math.PI * u2);
+            const rawReturn = mean + z * stdDev;
+            return Math.max(minReturn, Math.min(maxReturn, rawReturn));
+        }
+
+        // Run single simulation
+        function runSingleSimulation(returns) {
+            const brokerage = parseFloat(document.getElementById('startingBrokerage').value);
+            const ira = parseFloat(document.getElementById('startingIRA').value);
+            const iraSepp = parseFloat(document.getElementById('startingSEPP').value);
+            const rothIra = parseFloat(document.getElementById('startingRothIRA').value);
+            const rothAvailable = parseFloat(document.getElementById('startingRothAvailable').value);
+
+            return runSimulationCore(brokerage, ira, iraSepp, rothIra, rothAvailable, returns);
+        }
+
+        // Core simulation logic
+        function runSimulationCore(brokerage, ira, iraSepp, rothIra, rothAvailable, returns) {
+            let helocBalance = 0;
+
+            const seppRate = parseFloat(document.getElementById('seppRate').value) / 100;
+            const seppAnnualDistribution = iraSepp * seppRate;
+            const taxRate = parseFloat(document.getElementById('taxRate').value) / 100;
+            const helocRate = parseFloat(document.getElementById('helocRate').value) / 100;
+            const helocLimit = parseFloat(document.getElementById('helocLimit').value);
+            const homeSaleYear = parseInt(document.getElementById('homeSaleYear').value);
+            const netHomeSale = parseFloat(document.getElementById('netHomeSale').value);
+
+            for (let year = 0; year < 50; year++) {
+                const age = 46 + year;
+                const expense = yearlyExpenses[year];
+                const annualExpenses = (expense.mortgage + expense.food + expense.utilities + expense.other + expense.slush) * 12;
+
+                let seppIncome = year < 13 ? seppAnnualDistribution : 0;
+                let rothWithdrawal = 0;
+
+                if (year <= 5 && rothAvailable > 0) {
+                    rothWithdrawal = Math.min(20000, rothAvailable);
+                    rothAvailable -= rothWithdrawal;
+                }
+
+                if (year === homeSaleYear) {
+                    brokerage += netHomeSale;
+                }
+
+                const afterTaxSepp = seppIncome * (1 - taxRate);
+                const totalIncome = rothWithdrawal + afterTaxSepp;
+                let shortfall = annualExpenses - totalIncome;
+
+                if (shortfall > 0) {
+                    if (brokerage > 0) {
+                        const brokerageWithdrawal = Math.min(shortfall / (1 - taxRate * 0.5), brokerage * 0.95);
+                        const afterTaxBrokerage = brokerageWithdrawal * (1 - taxRate * 0.5);
+                        brokerage -= brokerageWithdrawal;
+                        shortfall -= afterTaxBrokerage;
+                    }
+
+                    if (shortfall > 0 && helocBalance < helocLimit && year <= homeSaleYear) {
+                        const helocDraw = Math.min(shortfall, helocLimit - helocBalance);
+                        helocBalance += helocDraw;
+                        shortfall -= helocDraw;
+                    }
+
+                    if (shortfall > 0 && age >= 59.5 && ira > 0) {
+                        const iraWithdrawal = Math.min(shortfall / (1 - taxRate), ira);
+                        const afterTaxIra = iraWithdrawal * (1 - taxRate);
+                        ira -= iraWithdrawal;
+                        shortfall -= afterTaxIra;
+                    }
+
+                    if (shortfall > 0 && age >= 59.5 && rothIra > 0) {
+                        const rothIraWithdrawal = Math.min(shortfall, rothIra);
+                        rothIra -= rothIraWithdrawal;
+                        shortfall -= rothIraWithdrawal;
+                    }
+                }
+
+                if (year === homeSaleYear && helocBalance > 0) {
+                    const helocPayoff = Math.min(helocBalance, brokerage);
+                    brokerage -= helocPayoff;
+                    helocBalance -= helocPayoff;
+                }
+
+                if (helocBalance > 0) {
+                    helocBalance += helocBalance * helocRate;
+                }
+
+                if (year < 49) {
+                    const returnRate = returns ? returns[year] : (parseFloat(document.getElementById('returnRate').value) / 100);
+                    brokerage *= (1 + returnRate);
+                    ira *= (1 + returnRate);
+                    iraSepp *= (1 + returnRate);
+                    rothIra *= (1 + returnRate);
+                }
+            }
+
+            return brokerage + ira + iraSepp + rothIra + rothAvailable - helocBalance;
+        }
+
+        // Calculate model
+        function calculateModel() {
+            const useMonteCarloSimulation = document.getElementById('useMonteCarloSimulation').checked;
+
+            if (useMonteCarloSimulation) {
+                return calculateMonteCarloModel();
+            } else {
+                return calculateDeterministicModel();
+            }
+        }
+
+        // Monte Carlo simulation
+        function calculateMonteCarloModel() {
+            const monteCarloRuns = parseInt(document.getElementById('monteCarloRuns').value);
+            const meanReturn = parseFloat(document.getElementById('returnRate').value) / 100;
+            const volatility = parseFloat(document.getElementById('returnVolatility').value) / 100;
+            const maxReturn = parseFloat(document.getElementById('maxAnnualReturn').value) / 100;
+            const minReturn = parseFloat(document.getElementById('minAnnualReturn').value) / 100;
+
+            const simulations = [];
+
+            for (let sim = 0; sim < monteCarloRuns; sim++) {
+                const returns = [];
+                for (let y = 0; y < 49; y++) {
+                    returns.push(generateRandomReturn(meanReturn, volatility, maxReturn, minReturn));
+                }
+                const finalBalance = runSingleSimulation(returns);
+                simulations.push(finalBalance);
+            }
+
+            simulations.sort((a, b) => a - b);
+            const p10Index = Math.floor(simulations.length * 0.10);
+            const p25Index = Math.floor(simulations.length * 0.25);
+            const p50Index = Math.floor(simulations.length * 0.50);
+            const p75Index = Math.floor(simulations.length * 0.75);
+
+            const scenarios = {
+                pessimistic: { index: p10Index, returnAdjust: -1.3 },
+                low: { index: p25Index, returnAdjust: -0.7 },
+                median: { index: p50Index, returnAdjust: 0 },
+                high: { index: p75Index, returnAdjust: 0.7 }
+            };
+
+            const data = [];
+
+            for (const [scenarioName, scenario] of Object.entries(scenarios)) {
+                const adjustedReturn = meanReturn + (volatility * scenario.returnAdjust);
+                const returns = new Array(49).fill(adjustedReturn);
+
+                const brokerage = parseFloat(document.getElementById('startingBrokerage').value);
+                const ira = parseFloat(document.getElementById('startingIRA').value);
+                const iraSepp = parseFloat(document.getElementById('startingSEPP').value);
+                const rothIra = parseFloat(document.getElementById('startingRothIRA').value);
+                const rothAvailable = parseFloat(document.getElementById('startingRothAvailable').value);
+
+                let brokerageAmt = brokerage;
+                let iraAmt = ira;
+                let iraSeppAmt = iraSepp;
+                let rothIraAmt = rothIra;
+                let rothAvailableAmt = rothAvailable;
+                let helocBalance = 0;
+
+                const seppRate = parseFloat(document.getElementById('seppRate').value) / 100;
+                const seppAnnualDistribution = iraSepp * seppRate;
+                const taxRate = parseFloat(document.getElementById('taxRate').value) / 100;
+                const helocRate = parseFloat(document.getElementById('helocRate').value) / 100;
+                const helocLimit = parseFloat(document.getElementById('helocLimit').value);
+                const homeSaleYear = parseInt(document.getElementById('homeSaleYear').value);
+                const netHomeSale = parseFloat(document.getElementById('netHomeSale').value);
+
+                for (let year = 0; year <= 49; year++) {
+                    const age = 46 + year;
+                    const expense = yearlyExpenses[year];
+                    const annualExpenses = (expense.mortgage + expense.food + expense.utilities + expense.other + expense.slush) * 12;
+
+                    let seppIncome = year < 13 ? seppAnnualDistribution : 0;
+                    let rothWithdrawal = 0;
+
+                    if (year <= 5 && rothAvailableAmt > 0) {
+                        rothWithdrawal = Math.min(20000, rothAvailableAmt);
+                        rothAvailableAmt -= rothWithdrawal;
+                    }
+
+                    let homeSaleProceeds = 0;
+                    if (year === homeSaleYear) {
+                        homeSaleProceeds = netHomeSale;
+                        brokerageAmt += homeSaleProceeds;
+                    }
+
+                    const afterTaxSepp = seppIncome * (1 - taxRate);
+                    const totalIncome = rothWithdrawal + afterTaxSepp;
+                    let shortfall = annualExpenses - totalIncome;
+
+                    if (shortfall > 0) {
+                        if (brokerageAmt > 0) {
+                            const brokerageWithdrawal = Math.min(shortfall / (1 - taxRate * 0.5), brokerageAmt * 0.95);
+                            const afterTaxBrokerage = brokerageWithdrawal * (1 - taxRate * 0.5);
+                            brokerageAmt -= brokerageWithdrawal;
+                            shortfall -= afterTaxBrokerage;
+                        }
+
+                        if (shortfall > 0 && helocBalance < helocLimit && year <= homeSaleYear) {
+                            const helocDraw = Math.min(shortfall, helocLimit - helocBalance);
+                            helocBalance += helocDraw;
+                            shortfall -= helocDraw;
+                        }
+
+                        if (shortfall > 0 && age >= 59.5 && iraAmt > 0) {
+                            const iraWithdrawal = Math.min(shortfall / (1 - taxRate), iraAmt);
+                            const afterTaxIra = iraWithdrawal * (1 - taxRate);
+                            iraAmt -= iraWithdrawal;
+                            shortfall -= afterTaxIra;
+                        }
+
+                        if (shortfall > 0 && age >= 59.5 && rothIraAmt > 0) {
+                            const rothIraWithdrawal = Math.min(shortfall, rothIraAmt);
+                            rothIraAmt -= rothIraWithdrawal;
+                            shortfall -= rothIraWithdrawal;
+                        }
+                    }
+
+                    if (year === homeSaleYear && helocBalance > 0) {
+                        const helocPayoff = Math.min(helocBalance, brokerageAmt);
+                        brokerageAmt -= helocPayoff;
+                        helocBalance -= helocPayoff;
+                    }
+
+                    if (helocBalance > 0) {
+                        helocBalance += helocBalance * helocRate;
+                    }
+
+                    if (year < 49) {
+                        brokerageAmt *= (1 + returns[year]);
+                        iraAmt *= (1 + returns[year]);
+                        iraSeppAmt *= (1 + returns[year]);
+                        rothIraAmt *= (1 + returns[year]);
+                    }
+
+                    const totalAssets = brokerageAmt + iraAmt + iraSeppAmt + rothIraAmt + rothAvailableAmt - helocBalance;
+
+                    const dataPoint = data.find(d => d.year === year);
+                    if (dataPoint) {
+                        dataPoint[`${scenarioName}Assets`] = Math.round(totalAssets);
+                    } else {
+                        data.push({
+                            year,
+                            age,
+                            [`${scenarioName}Assets`]: Math.round(totalAssets),
+                            expenses: Math.round(annualExpenses)
+                        });
+                    }
+                }
+            }
+
+            const successRate = (simulations.filter(s => s > 0).length / simulations.length * 100).toFixed(1);
+            data.successRate = successRate;
+            data.failureRate = (100 - successRate).toFixed(1);
+            data.minBalance = Math.round(simulations[0]);
+            data.maxBalance = Math.round(simulations[simulations.length - 1]);
+            data.p10Balance = Math.round(simulations[p10Index]);
+            data.p25Balance = Math.round(simulations[p25Index]);
+            data.p50Balance = Math.round(simulations[p50Index]);
+            data.p75Balance = Math.round(simulations[p75Index]);
+
+            return data;
+        }
+
+        // Deterministic calculation
+        function calculateDeterministicModel() {
+            const brokerage = parseFloat(document.getElementById('startingBrokerage').value);
+            const ira = parseFloat(document.getElementById('startingIRA').value);
+            const iraSepp = parseFloat(document.getElementById('startingSEPP').value);
+            const rothIra = parseFloat(document.getElementById('startingRothIRA').value);
+            const rothAvailable = parseFloat(document.getElementById('startingRothAvailable').value);
+
+            let brokerageAmt = brokerage;
+            let iraAmt = ira;
+            let iraSeppAmt = iraSepp;
+            let rothIraAmt = rothIra;
+            let rothAvailableAmt = rothAvailable;
+            let helocBalance = 0;
+
+            const seppRate = parseFloat(document.getElementById('seppRate').value) / 100;
+            const seppAnnualDistribution = iraSepp * seppRate;
+            const returnRate = parseFloat(document.getElementById('returnRate').value) / 100;
+            const taxRate = parseFloat(document.getElementById('taxRate').value) / 100;
+            const helocRate = parseFloat(document.getElementById('helocRate').value) / 100;
+            const helocLimit = parseFloat(document.getElementById('helocLimit').value);
+            const homeSaleYear = parseInt(document.getElementById('homeSaleYear').value);
+            const netHomeSale = parseFloat(document.getElementById('netHomeSale').value);
+
+            const data = [];
+
+            for (let year = 0; year <= 49; year++) {
+                const age = 46 + year;
+                const expense = yearlyExpenses[year];
+                const annualExpenses = (expense.mortgage + expense.food + expense.utilities + expense.other + expense.slush) * 12;
+
+                let seppIncome = year < 13 ? seppAnnualDistribution : 0;
+                let rothWithdrawal = 0;
+
+                if (year <= 5 && rothAvailableAmt > 0) {
+                    rothWithdrawal = Math.min(20000, rothAvailableAmt);
+                    rothAvailableAmt -= rothWithdrawal;
+                }
+
+                let homeSaleProceeds = 0;
+                if (year === homeSaleYear) {
+                    homeSaleProceeds = netHomeSale;
+                    brokerageAmt += homeSaleProceeds;
+                }
+
+                const afterTaxSepp = seppIncome * (1 - taxRate);
+                const totalIncome = rothWithdrawal + afterTaxSepp;
+                let shortfall = annualExpenses - totalIncome;
+
+                if (shortfall > 0) {
+                    if (brokerageAmt > 0) {
+                        const brokerageWithdrawal = Math.min(shortfall / (1 - taxRate * 0.5), brokerageAmt * 0.95);
+                        const afterTaxBrokerage = brokerageWithdrawal * (1 - taxRate * 0.5);
+                        brokerageAmt -= brokerageWithdrawal;
+                        shortfall -= afterTaxBrokerage;
+                    }
+
+                    if (shortfall > 0 && helocBalance < helocLimit && year <= homeSaleYear) {
+                        const helocDraw = Math.min(shortfall, helocLimit - helocBalance);
+                        helocBalance += helocDraw;
+                        shortfall -= helocDraw;
+                    }
+
+                    if (shortfall > 0 && age >= 59.5 && iraAmt > 0) {
+                        const iraWithdrawal = Math.min(shortfall / (1 - taxRate), iraAmt);
+                        const afterTaxIra = iraWithdrawal * (1 - taxRate);
+                        iraAmt -= iraWithdrawal;
+                        shortfall -= afterTaxIra;
+                    }
+
+                    if (shortfall > 0 && age >= 59.5 && rothIraAmt > 0) {
+                        const rothIraWithdrawal = Math.min(shortfall, rothIraAmt);
+                        rothIraAmt -= rothIraWithdrawal;
+                        shortfall -= rothIraWithdrawal;
+                    }
+                }
+
+                if (year === homeSaleYear && helocBalance > 0) {
+                    const helocPayoff = Math.min(helocBalance, brokerageAmt);
+                    brokerageAmt -= helocPayoff;
+                    helocBalance -= helocPayoff;
+                }
+
+                if (helocBalance > 0) {
+                    helocBalance += helocBalance * helocRate;
+                }
+
+                if (year < 49) {
+                    brokerageAmt *= (1 + returnRate);
+                    iraAmt *= (1 + returnRate);
+                    iraSeppAmt *= (1 + returnRate);
+                    rothIraAmt *= (1 + returnRate);
+                }
+
+                const totalAssets = brokerageAmt + iraAmt + iraSeppAmt + rothIraAmt + rothAvailableAmt - helocBalance;
+
+                data.push({
+                    year,
+                    age,
+                    brokerage: Math.round(brokerageAmt),
+                    ira: Math.round(iraAmt),
+                    iraSepp: Math.round(iraSeppAmt),
+                    rothIra: Math.round(rothIraAmt),
+                    rothAvailable: Math.round(rothAvailableAmt),
+                    helocBalance: Math.round(helocBalance),
+                    totalAssets: Math.round(totalAssets),
+                    expenses: Math.round(annualExpenses)
+                });
+            }
+
+            return data;
+        }
+
+        // Render metrics
+        function renderMetrics(data) {
+            const useMonteCarloSimulation = document.getElementById('useMonteCarloSimulation').checked;
+            const finalBalance = useMonteCarloSimulation ? data[data.length - 1].medianAssets : data[data.length - 1].totalAssets;
+
+            const firstExpense = yearlyExpenses[0];
+            const totalFirstYearExpenses = (firstExpense.mortgage + firstExpense.food + firstExpense.utilities + firstExpense.other + firstExpense.slush) * 12;
+
+            const brokerage = parseFloat(document.getElementById('startingBrokerage').value);
+            const ira = parseFloat(document.getElementById('startingIRA').value);
+            const iraSepp = parseFloat(document.getElementById('startingSEPP').value);
+            const rothIra = parseFloat(document.getElementById('startingRothIRA').value);
+            const rothAvailable = parseFloat(document.getElementById('startingRothAvailable').value);
+            const totalStartingAssets = brokerage + ira + iraSepp + rothIra + rothAvailable;
+
+            const homeSaleYear = parseInt(document.getElementById('homeSaleYear').value);
+            const netHomeSale = parseFloat(document.getElementById('netHomeSale').value);
+
+            const metricsHTML = `
+                <div class="metric-card">
+                    <div class="metric-label">Starting Assets</div>
+                    <div class="metric-value blue">${formatCurrency(totalStartingAssets)}</div>
+                </div>
+                <div class="metric-card">
+                    <div class="metric-label">Annual Expenses (Y1)</div>
+                    <div class="metric-value orange">${formatCurrency(totalFirstYearExpenses)}</div>
+                </div>
+                <div class="metric-card">
+                    <div class="metric-label">Home Sale (Year ${homeSaleYear})</div>
+                    <div class="metric-value green">${formatCurrency(netHomeSale)}</div>
+                </div>
+                <div class="metric-card ${finalBalance > 0 ? 'success' : 'failure'}">
+                    <div class="metric-label">Age 95 Balance ${useMonteCarloSimulation ? '(Median)' : ''}</div>
+                    <div class="metric-value ${finalBalance > 0 ? 'green' : 'red'}">${formatCurrency(finalBalance)}</div>
+                    ${useMonteCarloSimulation && data.successRate ? `<div style="font-size: 12px; color: #6b7280; margin-top: 4px;">Success Rate: ${data.successRate}%</div>` : ''}
+                </div>
+            `;
+
+            document.getElementById('metricsGrid').innerHTML = metricsHTML;
+
+            // Render Monte Carlo distribution if applicable
+            if (useMonteCarloSimulation && data.p10Balance !== undefined) {
+                const distHTML = `
+                    <div class="card">
+                        <h2>Monte Carlo Simulation Results (${document.getElementById('monteCarloRuns').value} runs)</h2>
+                        <div class="distribution-grid">
+                            <div class="dist-card red">
+                                <div class="dist-label" style="color: #dc2626;">Worst Case</div>
+                                <div class="dist-value" style="color: #dc2626;">${formatCurrency(data.minBalance)}</div>
+                            </div>
+                            <div class="dist-card orange">
+                                <div class="dist-label" style="color: #ea580c;">10th Percentile</div>
+                                <div class="dist-value" style="color: #ea580c;">${formatCurrency(data.p10Balance)}</div>
+                            </div>
+                            <div class="dist-card green">
+                                <div class="dist-label" style="color: #16a34a;">Median (50th)</div>
+                                <div class="dist-value" style="color: #16a34a;">${formatCurrency(data.p50Balance)}</div>
+                            </div>
+                            <div class="dist-card blue">
+                                <div class="dist-label" style="color: #2563eb;">75th Percentile</div>
+                                <div class="dist-value" style="color: #2563eb;">${formatCurrency(data.p75Balance)}</div>
+                            </div>
+                            <div class="dist-card purple">
+                                <div class="dist-label" style="color: #7c3aed;">Best Case</div>
+                                <div class="dist-value" style="color: #7c3aed;">${formatCurrency(data.maxBalance)}</div>
+                            </div>
+                        </div>
+                        <div class="alert alert-purple" style="margin-top: 16px;">
+                            <strong>Success Rate:</strong> ${data.successRate}% of simulations ended with positive balance at age 95<br>
+                            <strong>Range:</strong> ${formatCurrency(data.minBalance)} to ${formatCurrency(data.maxBalance)}
+                        </div>
+                    </div>
+                `;
+                document.getElementById('monteCarloDistribution').innerHTML = distHTML;
+            } else {
+                document.getElementById('monteCarloDistribution').innerHTML = '';
+            }
+        }
+
+        // Render charts
+        function renderCharts(data) {
+            const useMonteCarloSimulation = document.getElementById('useMonteCarloSimulation').checked;
+
+            // Asset chart
+            const assetCtx = document.getElementById('assetChart').getContext('2d');
+
+            if (assetChart) {
+                assetChart.destroy();
+            }
+
+            document.getElementById('chartTitle').textContent = useMonteCarloSimulation ?
+                'Asset Projection - Multiple Scenarios' : 'Asset Drawdown Over Time';
+
+            if (useMonteCarloSimulation) {
+                assetChart = new Chart(assetCtx, {
+                    type: 'line',
+                    data: {
+                        labels: data.map(d => d.age),
+                        datasets: [
+                            {
+                                label: '10th Percentile (Pessimistic)',
+                                data: data.map(d => d.pessimisticAssets),
+                                borderColor: '#dc2626',
+                                borderWidth: 1,
+                                borderDash: [5, 5],
+                                fill: false,
+                                tension: 0.1
+                            },
+                            {
+                                label: '25th Percentile (Low)',
+                                data: data.map(d => d.lowAssets),
+                                borderColor: '#f97316',
+                                borderWidth: 2,
+                                fill: false,
+                                tension: 0.1
+                            },
+                            {
+                                label: '50th Percentile (Median)',
+                                data: data.map(d => d.medianAssets),
+                                borderColor: '#059669',
+                                borderWidth: 3,
+                                fill: false,
+                                tension: 0.1
+                            },
+                            {
+                                label: '75th Percentile (High)',
+                                data: data.map(d => d.highAssets),
+                                borderColor: '#3b82f6',
+                                borderWidth: 2,
+                                fill: false,
+                                tension: 0.1
+                            }
+                        ]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            legend: { display: true, position: 'bottom' },
+                            tooltip: {
+                                callbacks: {
+                                    label: function (context) {
+                                        return context.dataset.label + ': ' + formatCurrency(context.parsed.y);
+                                    }
+                                }
+                            }
+                        },
+                        scales: {
+                            y: {
+                                ticks: {
+                                    callback: function (value) {
+                                        return '$' + (value / 1000000).toFixed(1) + 'M';
+                                    }
+                                }
+                            },
+                            x: {
+                                title: { display: true, text: 'Age' }
+                            }
+                        }
+                    }
+                });
+            } else {
+                assetChart = new Chart(assetCtx, {
+                    type: 'line',
+                    data: {
+                        labels: data.map(d => d.age),
+                        datasets: [
+                            {
+                                label: 'Brokerage',
+                                data: data.map(d => d.brokerage),
+                                backgroundColor: '#3b82f6',
+                                borderColor: '#3b82f6',
+                                fill: true
+                            },
+                            {
+                                label: 'IRA',
+                                data: data.map(d => d.ira),
+                                backgroundColor: '#10b981',
+                                borderColor: '#10b981',
+                                fill: true
+                            },
+                            {
+                                label: 'IRA SEPP',
+                                data: data.map(d => d.iraSepp),
+                                backgroundColor: '#f59e0b',
+                                borderColor: '#f59e0b',
+                                fill: true
+                            },
+                            {
+                                label: 'Roth IRA',
+                                data: data.map(d => d.rothIra),
+                                backgroundColor: '#8b5cf6',
+                                borderColor: '#8b5cf6',
+                                fill: true
+                            },
+                            {
+                                label: 'Roth Available',
+                                data: data.map(d => d.rothAvailable),
+                                backgroundColor: '#ec4899',
+                                borderColor: '#ec4899',
+                                fill: true
+                            }
+                        ]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            legend: { display: true, position: 'bottom' },
+                            tooltip: {
+                                mode: 'index',
+                                callbacks: {
+                                    label: function (context) {
+                                        return context.dataset.label + ': ' + formatCurrency(context.parsed.y);
+                                    }
+                                }
+                            }
+                        },
+                        scales: {
+                            y: {
+                                stacked: true,
+                                ticks: {
+                                    callback: function (value) {
+                                        return '$' + (value / 1000000).toFixed(1) + 'M';
+                                    }
+                                }
+                            },
+                            x: {
+                                stacked: true,
+                                title: { display: true, text: 'Age' }
+                            }
+                        }
+                    }
+                });
+            }
+
+            // Total assets chart
+            const totalAssetsCtx = document.getElementById('totalAssetsChart').getContext('2d');
+
+            if (totalAssetsChart) {
+                totalAssetsChart.destroy();
+            }
+
+            document.getElementById('totalAssetsChartTitle').textContent = useMonteCarloSimulation ?
+                'Net Assets - Scenario Comparison' : 'Net Assets & HELOC Balance';
+
+            if (useMonteCarloSimulation) {
+                totalAssetsChart = new Chart(totalAssetsCtx, {
+                    type: 'line',
+                    data: {
+                        labels: data.map(d => d.age),
+                        datasets: [
+                            {
+                                label: 'Pessimistic (10%)',
+                                data: data.map(d => d.pessimisticAssets),
+                                borderColor: '#dc2626',
+                                borderWidth: 1,
+                                borderDash: [5, 5],
+                                fill: false,
+                                tension: 0.1
+                            },
+                            {
+                                label: 'Low (25%)',
+                                data: data.map(d => d.lowAssets),
+                                borderColor: '#f97316',
+                                borderWidth: 2,
+                                fill: false,
+                                tension: 0.1
+                            },
+                            {
+                                label: 'Median (50%)',
+                                data: data.map(d => d.medianAssets),
+                                borderColor: '#059669',
+                                borderWidth: 3,
+                                fill: false,
+                                tension: 0.1
+                            },
+                            {
+                                label: 'High (75%)',
+                                data: data.map(d => d.highAssets),
+                                borderColor: '#3b82f6',
+                                borderWidth: 2,
+                                fill: false,
+                                tension: 0.1
+                            }
+                        ]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            legend: { display: true, position: 'bottom' },
+                            tooltip: {
+                                callbacks: {
+                                    label: function (context) {
+                                        return context.dataset.label + ': ' + formatCurrency(context.parsed.y);
+                                    }
+                                }
+                            }
+                        },
+                        scales: {
+                            y: {
+                                ticks: {
+                                    callback: function (value) {
+                                        return '$' + (value / 1000000).toFixed(1) + 'M';
+                                    }
+                                }
+                            },
+                            x: {
+                                title: { display: true, text: 'Age' }
+                            }
+                        }
+                    }
+                });
+
+                if (data.successRate) {
+                    document.getElementById('monteCarloSummary').innerHTML = `
+                        <div class="alert alert-purple" style="margin-top: 16px;">
+                            <strong>Success Rate:</strong> ${data.successRate}% of simulations ended with positive balance at age 95<br>
+                            <strong>Failure Rate:</strong> ${data.failureRate}% of simulations depleted before age 95
+                        </div>
+                    `;
+                }
+            } else {
+                totalAssetsChart = new Chart(totalAssetsCtx, {
+                    type: 'line',
+                    data: {
+                        labels: data.map(d => d.age),
+                        datasets: [
+                            {
+                                label: 'Total Net Assets',
+                                data: data.map(d => d.totalAssets),
+                                borderColor: '#059669',
+                                borderWidth: 3,
+                                fill: false,
+                                tension: 0.1
+                            },
+                            {
+                                label: 'HELOC Balance',
+                                data: data.map(d => d.helocBalance),
+                                borderColor: '#dc2626',
+                                borderWidth: 2,
+                                fill: false,
+                                tension: 0.1
+                            }
+                        ]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            legend: { display: true, position: 'bottom' },
+                            tooltip: {
+                                callbacks: {
+                                    label: function (context) {
+                                        return context.dataset.label + ': ' + formatCurrency(context.parsed.y);
+                                    }
+                                }
+                            }
+                        },
+                        scales: {
+                            y: {
+                                ticks: {
+                                    callback: function (value) {
+                                        return '$' + (value / 1000000).toFixed(1) + 'M';
+                                    }
+                                }
+                            },
+                            x: {
+                                title: { display: true, text: 'Age' }
+                            }
+                        }
+                    }
+                });
+
+                document.getElementById('monteCarloSummary').innerHTML = '';
+            }
+        }
+
+        // Calculate and render
+        function calculateAndRender() {
+            const data = calculateModel();
+            calculatedData = data;
+            renderMetrics(data);
+            renderCharts(data);
+
+            // Update year by year if visible
+            const yearByYearContent = document.getElementById('yearByYearContent');
+            if (yearByYearContent.classList.contains('show')) {
+                renderYearByYearTable();
+            }
+        }
+
+        // Event listeners
+        document.getElementById('useMonteCarloSimulation').addEventListener('change', function () {
+            document.getElementById('monteCarloSettings').style.display = this.checked ? 'block' : 'none';
+            calculateAndRender();
+        });
+
+        document.getElementById('newHomePurchase').addEventListener('change', function () {
+            document.getElementById('newMortgageGroup').style.display = this.checked ? 'flex' : 'none';
+            calculateAndRender();
+        });
+
+        // Add change listeners to all inputs
+        const inputs = ['startingBrokerage', 'startingIRA', 'startingSEPP', 'startingRothIRA',
+            'startingRothAvailable', 'seppRate', 'returnRate', 'inflationRate', 'taxRate',
+            'helocLimit', 'helocRate', 'homeSaleYear', 'netHomeSale', 'newHomeMortgage',
+            'monteCarloRuns', 'returnVolatility', 'maxAnnualReturn', 'minAnnualReturn'];
+
+        inputs.forEach(id => {
+            document.getElementById(id).addEventListener('change', calculateAndRender);
+        });
+
+        // Initialize
+        initializeExpenses();
+        calculateAndRender();
+    </script>
+</body>
+
+</html>
